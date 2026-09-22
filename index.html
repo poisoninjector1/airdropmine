@@ -1,62 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Mining Bot</title>
-    <!-- Telegram WebApp SDK -->
+    <title>Crypto Airdrop Miner</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: Arial, sans-serif;
-            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: 24px;
+            padding: 30px 20px;
             text-align: center;
-            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
-        .card {
-            background: #2a2a2a;
-            padding: 20px;
-            border-radius: 12px;
-            margin-top: 20px;
+        .logo { font-size: 64px; margin-bottom: 10px; animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+            100% { transform: scale(1); }
         }
-        .balance { font-size: 32px; color: #00ff88; font-weight: bold; }
-        .speed { font-size: 16px; color: #aaa; margin-top: 5px; }
-        button {
-            background: #0088cc;
-            color: white;
+        .balance-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #a0aec0; }
+        .balance { font-size: 40px; font-weight: 800; color: #00ff88; margin: 10px 0; text-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+        .speed-badge {
+            display: inline-block;
+            background: rgba(0, 136, 204, 0.2);
+            border: 1px solid #0088cc;
+            color: #38ef7d;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 25px;
+        }
+        .btn {
+            width: 100%;
+            background: linear-gradient(45deg, #11998e, #38ef7d);
             border: none;
-            padding: 12px 24px;
+            color: white;
+            padding: 16px;
             font-size: 16px;
-            border-radius: 8px;
-            margin-top: 20px;
+            font-weight: bold;
+            border-radius: 16px;
             cursor: pointer;
+            box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+            transition: all 0.2s ease;
         }
+        .btn:active { transform: scale(0.97); }
     </style>
 </head>
 <body>
 
-    <h2>⚡ Nerd Miner Mini App</h2>
-    
-    <div class="card">
-        <div>Your Balance</div>
-        <div class="balance" id="balance">0.0000</div>
-        <div class="speed">Speed: <span id="speed">1.0</span> Points/hr</div>
-    </div>
+    <div class="container">
+        <div class="logo">⛏️</div>
+        <div class="balance-title">Your Balance</div>
+        <div class="balance" id="balance">0.00</div>
+        <div class="speed-badge">⚡ Speed: <span id="speed">10</span> Coins/Sec</div>
 
-    <button onclick="shareReferral()">Invite Friend (+10% Speed)</button>
+        <button class="btn" onclick="shareReferral()">🚀 Invite Friends (+1 Coin/sec)</button>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Fullscreen expansion
+        tg.expand();
 
-        // Telegram WebApp user identity
         const user = tg.initDataUnsafe?.user || { id: 99999, username: "DemoUser" };
         const urlParams = new URLSearchParams(window.location.search);
         const referrerId = urlParams.get('ref');
 
-        // Replace with your live Backend URL (e.g., ngrok or VPS URL)
-        const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com/";
+        // আপনার Render Live Backend Endpoint
+        const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com";
+
+        let currentBalance = 0;
+        let speedPerSec = 10;
 
         async function syncData() {
             try {
@@ -70,22 +101,28 @@
                     })
                 });
                 const data = await response.json();
-                
-                document.getElementById('balance').innerText = data.balance.toFixed(4);
-                document.getElementById('speed').innerText = data.mining_speed.toFixed(1);
+                currentBalance = data.balance;
+                speedPerSec = data.mining_speed || 10;
+                document.getElementById('speed').innerText = speedPerSec;
             } catch (err) {
-                console.error("Backend Connection Error:", err);
+                console.error("Backend Error:", err);
             }
         }
 
+        // Live Animation (প্রতি ০.১ সেকেন্ড পর পর ব্যালেন্স স্ক্রিনে বাড়াবে)
+        setInterval(() => {
+            currentBalance += (speedPerSec / 10);
+            document.getElementById('balance').innerText = currentBalance.toFixed(2);
+        }, 100);
+
         function shareReferral() {
-            const refLink = `https://t.me/YOUR_BOT_USERNAME?start=ref_${user.id}`;
-            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=Join my mining squad and boost speed!`);
+            const refLink = `https://t.me/@nerdminerpoolsok_bot?start=ref_${user.id}`;
+            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=Join my mining team and mine 10 coins per second!`);
         }
 
-        // Sync initially and update UI
+        // অ্যাপ চালু হলে এবং প্রতি ১০ সেকেন্ড পর ব্যাকএন্ডের সাথে সিঙ্ক হবে
         syncData();
-        setInterval(syncData, 10000); // 10 sec পর পর অটো সিঙ্ক
+        setInterval(syncData, 10000);
     </script>
 </body>
 </html>
