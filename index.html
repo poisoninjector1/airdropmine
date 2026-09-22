@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nerd Coin Mining Go</title>
+    <title>Nerd Coin Mining</title>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- TON Connect Web3 SDK -->
@@ -185,8 +185,10 @@
         const referrerId = urlParams.get('ref');
         const botUsername = "nerdminerpoolsok_bot";
 
-        // Ensuring base URL has no trailing slash to prevent "//" in request URLs
-        const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com");
+        // FIX: Ensure clean URL without trailing slash
+        const rawUrl = "https://airdropbackend-w8zk.onrender.com";
+        const BACKEND_URL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+        
         const COMMUNITY_WALLET = "EQD__________________________________________";
 
         let currentBalance = 0;
