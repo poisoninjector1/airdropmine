@@ -6,7 +6,7 @@
     <title>Nerd Coin Mining</title>
     <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- TON Connect Web3 SDK (Supports TON Wallet & Trust Wallet) -->
+    <!-- TON Connect Web3 SDK -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     
     <style>
@@ -46,7 +46,6 @@
             position: relative;
         }
 
-        /* Status Badge */
         .status-container {
             display: flex;
             align-items: center;
@@ -81,7 +80,6 @@
 
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-        /* Floating Icon */
         .miner-avatar {
             font-size: 56px;
             margin-bottom: 10px;
@@ -119,14 +117,12 @@
             margin-bottom: 22px;
         }
 
-        /* TON Connect Button Wrapper */
         #ton-connect {
             display: flex;
             justify-content: center;
             margin-bottom: 16px;
         }
 
-        /* Buttons */
         .btn {
             width: 100%;
             background: linear-gradient(135deg, #11998e, #38ef7d);
@@ -156,7 +152,6 @@
 <body>
 
     <div class="card">
-        <!-- Live Connection Status -->
         <div id="api-status" class="status-container status-offline">
             <span class="pulse-dot"></span>
             <span id="status-text">Connecting API...</span>
@@ -171,7 +166,6 @@
             <span id="speed" style="color: #38ef7d;">10</span> Coins/Sec
         </div>
 
-        <!-- TON / Trust Wallet Connect Button -->
         <div id="ton-connect"></div>
 
         <button class="btn" onclick="shareReferral()">
@@ -191,21 +185,19 @@
         const referrerId = urlParams.get('ref');
         const botUsername = "nerdminerpoolsok_bot";
 
-        // Render Live Backend Endpoint
-        const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com";
-        const COMMUNITY_WALLET = "EQD__________________________________________"; // Replace with your Community Wallet
+        // Ensuring base URL has no trailing slash to prevent "//" in request URLs
+        const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com".replace(/\/$/, "");
+        const COMMUNITY_WALLET = "EQD__________________________________________";
 
         let currentBalance = 0;
         let speedPerSec = 10;
         let isApiConnected = false;
 
-        // Initialize TON Connect UI
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
             manifestUrl: 'https://raw.githubusercontent.com/ton-community/ton-connect-manifest/main/tonconnect-manifest.json',
             buttonRootId: 'ton-connect'
         });
 
-        // 1. Sync & Connection Status Check
         async function syncData() {
             const statusElem = document.getElementById('api-status');
             const statusText = document.getElementById('status-text');
@@ -241,12 +233,12 @@
             }
         }
 
-        // 2. Render Keep-Alive Heartbeat (Runs every 3 minutes)
+        // Heartbeat Keep-Alive
         setInterval(() => {
             fetch(`${BACKEND_URL}/health`).catch(e => console.log("Heartbeat Ping"));
         }, 180000);
 
-        // 3. Smooth UI Balance Counter
+        // Counter Animation
         setInterval(() => {
             if (isApiConnected) {
                 currentBalance += (speedPerSec / 10);
@@ -254,14 +246,12 @@
             }
         }, 100);
 
-        // 4. Referral System with @nerdminerpoolsok_bot
         function shareReferral() {
             const refLink = `https://t.me/${botUsername}?start=ref_${user.id}`;
             const text = `Join my Nerd Coin Mining team on @${botUsername} and mine 10 coins per second!`;
             tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`);
         }
 
-        // 5. On-Chain Auto Withdrawal with 10% Community Fee Split
         async function processWithdrawal() {
             if (!tonConnectUI.connected) {
                 alert("Please connect your TON or Trust Wallet first!");
@@ -303,9 +293,8 @@
             }
         }
 
-        // Initial Load
         syncData();
-        setInterval(syncData, 8000); // Check status every 8 sec
+        setInterval(syncData, 8000);
     </script>
 </body>
 </html>
