@@ -1,302 +1,45 @@
-<!DOCTYPE html>
-<html lang="bn">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Nerd Coin Mining</title>
-    <!-- Telegram WebApp SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- TON Connect Web3 SDK -->
-    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
+async function syncData() {
+    const statusElem = document.getElementById('api-status');
+    const statusText = document.getElementById('status-text');
+
+    // 1. Ensure user ID is always a valid Integer number
+    let userId = user && user.id ? parseInt(user.id) : 99999;
     
-    <style>
-        :root {
-            --primary-glow: #38ef7d;
-            --accent-blue: #0088cc;
-            --bg-dark: #0a1118;
-            --card-bg: rgba(255, 255, 255, 0.05);
-            --border-glow: rgba(56, 239, 125, 0.2);
-        }
+    // 2. Parse referrerId safely
+    let refId = null;
+    if (referrerId) {
+        let parsed = parseInt(referrerId.replace('ref_', ''));
+        if (!isNaN(parsed)) refId = parsed;
+    }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        
-        body {
-            background: radial-gradient(circle at top, #162a38 0%, #0a1118 100%);
-            color: #ffffff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 16px;
-            overflow-x: hidden;
-        }
-
-        .card {
-            width: 100%;
-            max-width: 380px;
-            background: var(--card-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 28px;
-            padding: 24px 20px;
-            text-align: center;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-            position: relative;
-        }
-
-        .status-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 6px 14px;
-            border-radius: 20px;
-            margin: 0 auto 16px auto;
-            width: fit-content;
-            transition: all 0.3s ease;
-        }
-        .status-online {
-            background: rgba(56, 239, 125, 0.15);
-            color: #38ef7d;
-            border: 1px solid rgba(56, 239, 125, 0.3);
-        }
-        .status-offline {
-            background: rgba(255, 77, 77, 0.15);
-            color: #ff4d4d;
-            border: 1px solid rgba(255, 77, 77, 0.3);
-        }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-        .status-online .pulse-dot { background: #38ef7d; box-shadow: 0 0 8px #38ef7d; animation: blink 1.5s infinite; }
-        .status-offline .pulse-dot { background: #ff4d4d; }
-
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-        .miner-avatar {
-            font-size: 56px;
-            margin-bottom: 10px;
-            display: inline-block;
-            animation: float 3s ease-in-out infinite;
-            filter: drop-shadow(0 0 12px rgba(56, 239, 125, 0.4));
-        }
-        @keyframes float {
-            0%, 100% { transform: translateY(0) rotate(0deg); }
-            50% { transform: translateY(-8px) rotate(5deg); }
-        }
-
-        .title-sub { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #8a9ba8; font-weight: 600; }
-        .balance-display {
-            font-size: 42px;
-            font-weight: 900;
-            background: linear-gradient(180deg, #ffffff 0%, #38ef7d 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin: 6px 0;
-            letter-spacing: -1px;
-        }
-
-        .speed-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: rgba(0, 136, 204, 0.15);
-            border: 1px solid rgba(0, 136, 204, 0.4);
-            color: #0088cc;
-            padding: 6px 16px;
-            border-radius: 30px;
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 22px;
-        }
-
-        #ton-connect {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 16px;
-        }
-
-        .btn {
-            width: 100%;
-            background: linear-gradient(135deg, #11998e, #38ef7d);
-            border: none;
-            color: #000;
-            padding: 15px;
-            font-size: 15px;
-            font-weight: 800;
-            border-radius: 16px;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(56, 239, 125, 0.3);
-            transition: all 0.2s ease;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        .btn-withdraw {
-            background: linear-gradient(135deg, #0088cc, #005588);
-            color: #fff;
-            box-shadow: 0 4px 20px rgba(0, 136, 204, 0.3);
-        }
-        .btn:active { transform: scale(0.98); }
-    </style>
-</head>
-<body>
-
-    <div class="card">
-        <div id="api-status" class="status-container status-offline">
-            <span class="pulse-dot"></span>
-            <span id="status-text">Connecting API...</span>
-        </div>
-
-        <div class="miner-avatar">⛏️</div>
-        <div class="title-sub">Nerd Coin Mining</div>
-        <div class="balance-display" id="balance">0.00</div>
-        
-        <div class="speed-pill">
-            <span>⚡ Speed:</span>
-            <span id="speed" style="color: #38ef7d;">10</span> Coins/Sec
-        </div>
-
-        <div id="ton-connect"></div>
-
-        <button class="btn" onclick="shareReferral()">
-            🚀 Invite Friends (+1 Coin/sec)
-        </button>
-        <button class="btn btn-withdraw" onclick="processWithdrawal()">
-            💎 Withdraw to Wallet
-        </button>
-    </div>
-
-    <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
-
-        const user = tg.initDataUnsafe?.user || { id: 99999, username: "DemoUser" };
-        const urlParams = new URLSearchParams(window.location.search);
-        const referrerId = urlParams.get('ref');
-        const botUsername = "nerdminerpoolsok_bot";
-
-        // FIX: Ensure clean URL without trailing slash
-        const rawUrl = "https://airdropbackend-w8zk.onrender.com";
-        const BACKEND_URL = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
-        
-        const COMMUNITY_WALLET = "EQD__________________________________________";
-
-        let currentBalance = 0;
-        let speedPerSec = 10;
-        let isApiConnected = false;
-
-        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://raw.githubusercontent.com/ton-community/ton-connect-manifest/main/tonconnect-manifest.json',
-            buttonRootId: 'ton-connect'
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/user/sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: userId,
+                username: user.username || "Guest",
+                referrer_id: refId
+            })
         });
 
-        async function syncData() {
-            const statusElem = document.getElementById('api-status');
-            const statusText = document.getElementById('status-text');
+        if (response.ok) {
+            const data = await response.json();
+            currentBalance = data.balance;
+            speedPerSec = data.mining_speed || 10;
+            document.getElementById('speed').innerText = speedPerSec;
 
-            try {
-                const response = await fetch(`${BACKEND_URL}/api/user/sync`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        user_id: user.id,
-                        username: user.username || "",
-                        referrer_id: referrerId ? parseInt(referrerId) : null
-                    })
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    currentBalance = data.balance;
-                    speedPerSec = data.mining_speed || 10;
-                    document.getElementById('speed').innerText = speedPerSec;
-
-                    statusElem.className = "status-container status-online";
-                    statusText.innerText = "API Connected";
-                    isApiConnected = true;
-                } else {
-                    throw new Error("API Server error");
-                }
-            } catch (err) {
-                console.error("Connection Error:", err);
-                statusElem.className = "status-container status-offline";
-                statusText.innerText = "API Disconnected";
-                isApiConnected = false;
-            }
+            statusElem.className = "status-container status-online";
+            statusText.innerText = "API Connected";
+            isApiConnected = true;
+        } else {
+            console.error("API response error:", await response.text());
+            throw new Error("API Server error");
         }
-
-        // Heartbeat Keep-Alive
-        setInterval(() => {
-            fetch(`${BACKEND_URL}/health`).catch(e => console.log("Heartbeat Ping"));
-        }, 180000);
-
-        // Counter Animation
-        setInterval(() => {
-            if (isApiConnected) {
-                currentBalance += (speedPerSec / 10);
-                document.getElementById('balance').innerText = currentBalance.toFixed(2);
-            }
-        }, 100);
-
-        function shareReferral() {
-            const refLink = `https://t.me/${botUsername}?start=ref_${user.id}`;
-            const text = `Join my Nerd Coin Mining team on @${botUsername} and mine 10 coins per second!`;
-            tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(text)}`);
-        }
-
-        async function processWithdrawal() {
-            if (!tonConnectUI.connected) {
-                alert("Please connect your TON or Trust Wallet first!");
-                tonConnectUI.openModal();
-                return;
-            }
-
-            if (currentBalance < 100) {
-                alert("Minimum withdrawal is 100 Coins!");
-                return;
-            }
-
-            const userWalletAddress = tonConnectUI.account.address;
-            const totalRewardTON = (currentBalance / 10000).toFixed(4);
-            const communityCommission = (totalRewardTON * 0.10).toFixed(4);
-            const userNetPayout = (totalRewardTON - communityCommission).toFixed(4);
-
-            try {
-                const transaction = {
-                    validUntil: Math.floor(Date.now() / 1000) + 60,
-                    messages: [
-                        {
-                            address: userWalletAddress,
-                            amount: (userNetPayout * 1000000000).toString()
-                        },
-                        {
-                            address: COMMUNITY_WALLET,
-                            amount: (communityCommission * 1000000000).toString()
-                        }
-                    ]
-                };
-
-                await tonConnectUI.sendTransaction(transaction);
-                alert("Withdrawal Processed Successfully!");
-                currentBalance = 0;
-            } catch (error) {
-                console.error("Withdrawal error:", error);
-                alert("Transaction Canceled or Failed!");
-            }
-        }
-
-        syncData();
-        setInterval(syncData, 8000);
-    </script>
-</body>
-</html>
+    } catch (err) {
+        console.error("Connection Error:", err);
+        statusElem.className = "status-container status-offline";
+        statusText.innerText = "API Disconnected";
+        isApiConnected = false;
+    }
+}
